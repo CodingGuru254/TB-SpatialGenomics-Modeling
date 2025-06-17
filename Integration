@@ -1,0 +1,53 @@
+import pandas as pd
+
+# Step 1: Molecular data
+molecular_df = pd.DataFrame({
+    'strain_id': ['strain_1', 'strain_2', 'strain_3', 'strain_4', 'strain_5'],
+    'subcounty': ['Mutomo', 'Mwingi Central', 'Mwingi East', 'Mutomo', 'Kitui West'],
+    'lineage': ['L4', 'L3', 'L2', 'L1', 'L4'],
+    'drug_resistance': [1, 1, 0, 0, 0],
+    'mutation_profile': [
+        ['embB_M306V', 'katG_S315T'],
+        ['katG_S315T', 'inhA_C15T'],
+        [],
+        [],
+        []
+    ]
+})
+
+# Step 2: Summarize molecular data by subcounty
+mol_summary = molecular_df.groupby('subcounty').agg(
+    total_strains=('strain_id', 'count'),
+    resistant_strains=('drug_resistance', 'sum'),
+    resistance_rate=('drug_resistance', lambda x: round(x.mean() * 100, 1)),
+    most_common_lineage=('lineage', lambda x: x.mode().iloc[0] if not x.mode().empty else 'Unknown')
+).reset_index()
+
+# Step 3: Spatial TB model data
+spatial_df = pd.DataFrame({
+    'subcounty': [
+        'Kitui Central', 'Kitui East', 'Kitui West',
+        'Mwingi Central', 'Mwingi East', 'Kitui South', 'Mutomo'
+    ],
+    'tb_cases': [50, 40, 45, 30, 35, 25, 20],
+    'population': [100000, 90000, 95000, 85000, 80000, 75000, 70000],
+    'hiv_prevalence': [0.25, 0.27, 0.26, 0.23, 0.24, 0.22, 0.20],
+    'poverty_rate': [0.42, 0.45, 0.40, 0.43, 0.41, 0.44, 0.39],
+    'spatial_lag_tb': [36.67, 41.67, 36.25, 37.5, 33.33, 35.0, 35.0],
+    'log_pop': [11.51, 11.41, 11.46, 11.35, 11.29, 11.23, 11.16]
+})
+
+# Step 4: Merge molecular summary with spatial data
+merged_df = pd.merge(spatial_df, mol_summary, on='subcounty', how='left')
+
+# Fill missing molecular info for subcounties without strain data
+merged_df.fillna({
+    'total_strains': 0,
+    'resistant_strains': 0,
+    'resistance_rate': 0.0,
+    'most_common_lineage': 'Unknown'
+}, inplace=True)
+
+# Step 5: Display merged data
+print(merged_df[['subcounty', 'tb_cases', 'population', 'hiv_prevalence',
+                 'resistance_rate', 'most_common_lineage']])
